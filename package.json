@@ -1,0 +1,11 @@
+{
+  "name": "ningen-magiretemasu",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "validate": "node scripts/validate-artifact.mjs",
+    "test": "node scripts/test.mjs && node scripts/test-generation.mjs",
+    "dev": "node --env-file-if-exists=.env.local scripts/preview.mjs"
+  }
+}

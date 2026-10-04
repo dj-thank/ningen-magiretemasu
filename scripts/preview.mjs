@@ -1,0 +1,10 @@
+import {createServer} from 'node:http';
+import {readFile,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {database} from './d1-local.mjs';
+const DB=database(fileURLToPath(new URL('../preview.sqlite',import.meta.url)));
+const port=Number(process.env.PORT||4317),origin='http://127.0.0.1:'+port;
+const runtime=Object.fromEntries(['OPENAI_API_KEY','LLM_API_KEY','LLM_BASE_URL','LLM_MODEL','LLM_JSON_MODE','GENERATION_MODE','GENERATION_DAILY_LIMIT','ALLOW_LOCAL_LLM'].filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]));
+const server=createServer(async(req,res)=>{try{const source=await readFile(new URL('../dist/server/index.js',import.meta.url),'utf8');const worker=(await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'))).default;const chunks=[];for await(const c of req)chunks.push(c);const request=new Request(origin+req.url,{method:req.method,headers:req.headers,...(chunks.length?{body:Buffer.concat(chunks)}:{})});const response=await worker.fetch(request,{DB,...runtime});res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch(e){console.error(e.message);res.writeHead(500);res.end('Preview error');}});
+server.listen(port,'127.0.0.1',async()=>{await writeFile(new URL('../preview-process.json',import.meta.url),JSON.stringify({pid:process.pid,owner:'ningen-preview',cwd:process.cwd(),port,startedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+7200000).toISOString(),stop:'SIGINT via retained exec session'}),'utf8');console.log('Local: '+origin);});
+process.on('SIGINT',()=>server.close(()=>{DB.raw.close();process.exit(0);}));

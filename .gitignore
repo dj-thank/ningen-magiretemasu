@@ -1,0 +1,16 @@
+node_modules/
+dist/
+worker/index.js
+site.tar.gz
+.openai/hosting.json
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
+*.sqlite
+*.sqlite-*
+preview-process.json
+test-results*.json
+generation-test-results.json
