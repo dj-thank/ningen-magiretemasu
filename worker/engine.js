@@ -34,11 +34,12 @@ async function transact(env,code,token,apply){const tokenHash=token?await hash(t
  const changed=await env.DB.prepare('UPDATE rooms SET state = ?, revision = revision + 1 WHERE code = ? AND revision = ?').bind(JSON.stringify(room),code,row.revision).run();if(changed.meta.changes===1){if(result.internal)return {};const {player,readOnly,...publicResult}=result;return {...publicResult,room:view(room,player||p,row.revision+1,now)};}}
  fail('同時に操作が入りました。もう一度お試しください。',409);}
 async function gameApi(req,env,url,ctx){if(url.pathname==='/api/config'&&req.method==='GET')return json(generationSettings(env));if(!env.DB)fail('部屋のサーバー準備が完了していません。',503);
- if(url.pathname==='/api/rooms'&&req.method==='POST'){const b=await req.json();return json(await createRoom(env,req,b.name),201);}
+ const roomResponse=(data,status=200)=>{if(data.room)data.room.generationReady=generationSettings(env).ready;return json(data,status);};
+ if(url.pathname==='/api/rooms'&&req.method==='POST'){const b=await req.json();return roomResponse(await createRoom(env,req,b.name),201);}
  const match=url.pathname.match(/^\/api\/rooms\/([A-Z2-9]{6})(?:\/(join|action))?$/);if(!match)fail('ページが見つかりません。',404);const code=codeOf(match[1]);
- if(match[2]==='join'&&req.method==='POST'){await rate(env,req,'join',60);const b=await req.json(),name=nameOf(b.name),token=randomToken(),tokenHash=await hash(token);return json(await transact(env,code,null,(room)=>{if(room.phase!=='lobby')fail('ゲームが始まっています。次の部屋でご参加ください。',409);if(room.players.length>=MAX_PLAYERS)fail('この部屋は満員です。',409);if(room.players.some(p=>p.name===name))fail('同じ名前の人がいます。別の名前で参加してください。');const player={id:crypto.randomUUID(),name,tokenHash,score:0};room.players.push(player);return {token,player};}));}
+ if(match[2]==='join'&&req.method==='POST'){await rate(env,req,'join',60);const b=await req.json(),name=nameOf(b.name),token=randomToken(),tokenHash=await hash(token);return roomResponse(await transact(env,code,null,(room)=>{if(room.phase!=='lobby')fail('ゲームが始まっています。次の部屋でご参加ください。',409);if(room.players.length>=MAX_PLAYERS)fail('この部屋は満員です。',409);if(room.players.some(p=>p.name===name))fail('同じ名前の人がいます。別の名前で参加してください。');const player={id:crypto.randomUUID(),name,tokenHash,score:0};room.players.push(player);return {token,player};}));}
  const token=req.headers.get('Authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))fail('参加情報が必要です。',401);
- if(!match[2]&&req.method==='GET')return json(await transact(env,code,token,()=>({readOnly:true})));
+ if(!match[2]&&req.method==='GET')return roomResponse(await transact(env,code,token,()=>({readOnly:true})));
  if(match[2]!=='action'||req.method!=='POST')fail('この操作は利用できません。',405);
  const b=await req.json();await rate(env,req,'action',400);
  if(b.type==='start'||b.type==='retry_generation'){
@@ -47,9 +48,9 @@ async function gameApi(req,env,url,ctx){if(url.pathname==='/api/config'&&req.met
    await transact(env,code,token,(room,p,now)=>{hostOnly(room,p);if(b.type==='start'&&room.phase!=='lobby')fail('ゲームはすでに始まっています。',409);if(b.type==='retry_generation'){checkRound(room,b);if(room.phase!=='generation_error')fail('再生成できる状態ではありません。',409);}if(room.players.length<MIN_PLAYERS)fail('3人以上で始められます。');if(topics&&topics.length>room.players.length)fail('お題の数を参加人数以下にしてください。');if((room.generationCount||0)>=30)fail('この部屋の生成回数の上限に達しました。');jobId=crypto.randomUUID();room.generationId=jobId;room.generationDeadline=now+90000;room.generationCount=(room.generationCount||0)+1;room.generationMode=settings.mode;room.gameId=crypto.randomUUID();room.answers={};room.roundIndex=0;room.rounds=[];if(topics)room.customPrompts=topics;room.players.forEach(p=>p.score=0);room.phase='preparing';room.generationError=null;return {};});
    await rate(env,req,'generation',12).catch(async e=>{await transact(env,code,null,room=>{if(room.generationId===jobId){room.phase='generation_error';room.generationError=e.message;}return {internal:true};});throw e;});
    const task=prepareGame(env,code,jobId);ctx?.waitUntil?.(task);await task;
-   return json(await transact(env,code,token,()=>({readOnly:true})));
+   return roomResponse(await transact(env,code,token,()=>({readOnly:true})));
  }
- return json(await transact(env,code,token,(room,p,now)=>{
+ return roomResponse(await transact(env,code,token,(room,p,now)=>{
  checkRound(room,b);
  if(b.type==='reset'){hostOnly(room,p);room.phase='lobby';room.rounds=[];room.answers={};room.gameId=null;room.generationId=null;room.roundIndex=0;room.players.forEach(p=>p.score=0);return {};}
  if(b.type==='kick'){hostOnly(room,p);if(room.phase!=='lobby')fail('メンバーの変更は待合室で行ってください。',409);if(b.playerId===room.hostId)fail('主催者を外すことはできません。');if(!room.players.some(p=>p.id===b.playerId))fail('参加者が見つかりません。',404);room.players=room.players.filter(p=>p.id!==b.playerId);return {};}
