@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "validate": "node scripts/validate-artifact.mjs",
-    "test": "node scripts/test.mjs && node scripts/test-generation.mjs",
+    "test": "node scripts/test.mjs && node scripts/test-generation.mjs && node scripts/test-client.mjs",
     "dev": "node --env-file-if-exists=.env.local scripts/preview.mjs"
   }
 }

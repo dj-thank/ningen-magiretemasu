@@ -40,6 +40,7 @@ npm run dev
 - D1に保存した生成素材のハッシュで、他の部屋を含めた30日間の完全一致も拒否します。類似判定は部屋内の履歴に限ります。
 - 重複や形式違反で有効な候補が不足した場合は、ゲームを始めず再生成へ進めます。永久にあらゆる意味の重複がないと保証する仕組みではありません。
 - 生成APIの呼び出しは既定でサイト全体100回/UTC日、1部屋30回までです。HTTPエラーも呼び出し枠を消費します。ゲーム開始後の人間の回答・投票は追加の生成呼び出しを行いません。
+- 生成素材の重複履歴と部屋の更新を同じD1トランザクションで確定します。キャンセルや同時生成の競合で、使われなかった回答の予約を残しません。30件ずつの保存で、[D1のクエリ・パラメーター上限](https://developers.cloudflare.com/d1/platform/limits/)に収めます。
 
 API形式は [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)、モデル互換性は [GPT-4.1 mini公式文書](https://developers.openai.com/api/docs/models/gpt-4.1-mini) に基づきます。互換プロバイダーがJSON Schemaに対応しない場合は、`LLM_JSON_MODE=json_object` を設定できます。
 
