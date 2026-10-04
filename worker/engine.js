@@ -1,5 +1,6 @@
 const TTL=6*60*60*1000, MIN_PLAYERS=3, MAX_PLAYERS=8;
 const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="14" fill="#d9ef79" stroke="#243b40" stroke-width="4"/><rect x="14" y="18" width="36" height="31" rx="6" fill="#243b40"/><path d="M32 10v8" stroke="#243b40" stroke-width="4"/><circle cx="24" cy="29" r="4" fill="#d9ef79"/><circle cx="40" cy="29" r="4" fill="#d9ef79"/><path d="M24 40h16" stroke="#d9ef79" stroke-width="4"/></svg>';
 const textLength=s=>[...s].length;
 const clean=s=>typeof s==='string'?s.trim().normalize('NFC'):'';
 class GameError extends Error {constructor(message,status=400){super(message);this.status=status;}}
@@ -73,6 +74,7 @@ export default {async fetch(req,env,ctx){try{const url=new URL(req.url);if(req.m
  if(url.pathname.startsWith('/api/'))return await gameApi(req,env,url,ctx);
  if(url.pathname==='/mcp'&&req.method==='POST')return await mcp(req,env);
  if(url.pathname==='/health')return json({ok:true,storage:!!env.DB});
+ if(['/favicon.svg','/favicon.ico'].includes(url.pathname)&&req.method==='GET')return new Response(ICON,{headers:{'Content-Type':'image/svg+xml','Cache-Control':'public, max-age=86400'}});
  if(url.pathname==='/'&&req.method==='GET')return new Response(PAGE,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' https://chatgpt.com https://*.chatgpt.com"}});
  return json({error:'ページが見つかりません。'},404);
  }catch(e){if(e instanceof GameError)return json({error:e.message},e.status);if(e instanceof GenerationError)return json({error:e.message},400);if(e instanceof SyntaxError)return json({error:'入力を読み取れませんでした。'},400);console.error('Game request failed',e.name);return json({error:'サーバーでエラーが起きました。少し待ってお試しください。'},500);}}};
